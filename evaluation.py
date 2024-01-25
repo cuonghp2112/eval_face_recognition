@@ -3,6 +3,7 @@ import os, sys, re
 from random import shuffle
 import glob
 import numpy as np
+import mediapipe as mp
 import shutil
 from utils import read_image_from_file, read_image_from_bz2
 from face_recog_pipeline import FaceRecogPipeline
