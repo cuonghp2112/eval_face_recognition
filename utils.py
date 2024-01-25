@@ -6,7 +6,6 @@ from math import pi
 import torch
 import os, sys, time, re
 
-from backbones import get_model
 import numpy as np
 from numpy.linalg import norm as l2norm
 from skimage import transform as trans
