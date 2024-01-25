@@ -10,6 +10,30 @@ import numpy as np
 from numpy.linalg import norm as l2norm
 from skimage import transform as trans
 
+def read_image_from_bz2(file_path):
+    try:
+        # Read compressed data from the BZ2 file
+        with bz2.BZ2File(file_path, 'rb') as file:
+            decompressed_data = file.read()
+        # Convert the decompressed binary data to a NumPy array
+        image_array = np.frombuffer(decompressed_data, dtype=np.uint8)
+        # Decode the NumPy array to an OpenCV image
+        image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        return image
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
+def read_image_from_file(file_path):
+    try:
+        img = cv2.imread(file_path)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        return img
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
+
 def crop_face(detection_result, image, margin_percentage=0.5) -> np.ndarray:
     image_copy = np.copy(image.numpy_view())
     detection = detection_result.detections[0]
