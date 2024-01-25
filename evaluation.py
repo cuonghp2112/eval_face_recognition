@@ -1,5 +1,5 @@
 import pandas as pd
-import os, sys
+import os, sys, re
 from random import shuffle
 import glob
 import numpy as np
@@ -69,9 +69,9 @@ class Evaluate:
         if not os.path.exists(csv_path):
 
             image = self.load_image(image_path)
-            prediction = self.model.predict(image)[0]
-
-            prediction_str = ",".join(str(x) for x in prediction)
+            prediction, head_pose = self.model.predict(image)
+            prediction_str = ",".join(str(x) for x in prediction[0])
+            csv_path = csv_path.replace(".csv",f"_{head_pose}.csv")
 
             with open(csv_path, mode='w') as csv_file:
                 csv_file.write(prediction_str)
@@ -83,8 +83,19 @@ class Evaluate:
         return 1 - np.dot(vector1,vector2.T)
 
     def get_folder_from_path(self, image_path):
-        image_path = image_path.split("\\")[-3]
+        if os.uname().sysname.lower() == "linux":
+            image_path = image_path.split("/")[-3]
+        else:
+            image_path = image_path.split("\\")[-3]
         return image_path
+    
+    def pose_from_csv_filename(self, file_name):
+        pose = re.search("(?<=_)(up|down|left|right|forward)(?=\..+$)",file_name)
+        return pose.group(0) if pose is not None else None
+    
+    def image_from_saved_csv(self, file_name):
+        image_name = re.sub("(?<=_)(up|down|left|right|forward)(?=\..+$)","",file_name)
+        return image_name
 
     def evaluate(self):
 
@@ -96,6 +107,9 @@ class Evaluate:
         # SPLITTED_TEST_DATA_DIR2 = 'splited_test_dir\\dataset_contrast\\Users_Image_Train\\'
         # SPLITTED_TEST_DATA_DIR2 = os.path.join(self.splitted_test_dir, a)
         # SPLITTED_TEST_DATA_DIR2 = 'splited_test_dir\\imgDir\\Users_Image_Train\\'
+        
+        error_original = []
+        error_prediction = []
 
         for user_dir in glob.glob(os.path.join(SPLITTED_TEST_DATA_DIR2, "*")):
             original_dir = os.path.join(user_dir, "Original")
@@ -106,6 +120,7 @@ class Evaluate:
                     self.predict_and_save(image)
                 except Exception as e:
                     print(f"error image: {image}")
+                    error_original.append(image)
                     print(e)
                     
 
@@ -114,7 +129,15 @@ class Evaluate:
                     self.predict_and_save(image)
                 except Exception as e:
                     print(f"error image: {image}")
+                    error_prediction.append(image)
                     print(e)
+        print("error predict Original image")
+        print(error_original)
+        print("-"*30 + "\n")
+        
+        print("error predict Prediction image")
+        print(error_prediction)
+        print("-"*30 + "\n")
 
         print(f"Done Predicting.................................................")
         
@@ -122,15 +145,17 @@ class Evaluate:
         # Get all original values
         for user_dir in glob.glob(os.path.join(SPLITTED_TEST_DATA_DIR2, "*")):
             original_dir = os.path.join(user_dir, "Original")
-            for image in glob.glob(os.path.join(original_dir, f"*.{self.img_format}")):
+            for csv_path in glob.glob(os.path.join(original_dir, "*.csv")):
                 try:
-                    line = [image]
-                    csv_path = image.replace(self.img_format, "csv")
+                    image_path = self.image_from_saved_csv(csv_path)
+                    head_pose = self.pose_from_csv_filename(csv_path)
+                    line = [image_path]
                     with open(csv_path, mode='rb') as csv_file:
                         prediction = csv_file.readline().decode("utf-8")
                         if len(prediction) == 0:
                             raise Exception("Empty result: ", csv_path)
                         line.append(prediction)
+                        line.append(head_pose)
                 except Exception as e:
                     print(f"error image: {image}")
                     print(e)
@@ -139,12 +164,12 @@ class Evaluate:
                 original_values.append(line)
 
         print(f"Calculating Distance............................................")
-
+        count = 0
         for user_dir in glob.glob(os.path.join(SPLITTED_TEST_DATA_DIR2, "*")):
             prediction_dir = os.path.join(user_dir, "Prediction")
 
-            for image in glob.glob(os.path.join(prediction_dir, f"*.{self.img_format}")):
-                csv_path = image.replace(self.img_format, "csv")
+            for csv_path in glob.glob(os.path.join(prediction_dir, "*.csv")):
+#                 csv_path = image.replace(self.img_format, "csv")
                 csv_out_path = csv_path.replace(".csv", "_out.csv")
                 prediction = ""
                 try:
@@ -156,10 +181,14 @@ class Evaluate:
                     print(f"error csv: {csv_path}")
                     print(e)
                     continue
+                head_pose = self.pose_from_csv_filename(csv_path)
                 image_list = []
                 distance_list = []
 
                 for original_value in original_values:
+                    #  skip image has different head pose
+                    if original_value[2] != head_pose:
+                        continue
                     dist = self.distance(prediction, original_value[1])
                     image_list.append(original_value[0])
                     distance_list.append(dist)
@@ -181,103 +210,64 @@ class Evaluate:
         FRR= 0
         FAR=0
         threshold = []
+        
         print(SPLITTED_TEST_DATA_DIR2)
         for user_dir in glob.glob(os.path.join(SPLITTED_TEST_DATA_DIR2, "*")):
             prediction_dir = os.path.join(user_dir, "Prediction")
+            for csv_path in glob.glob(os.path.join(prediction_dir, "*.csv")):
 
-            for image in glob.glob(os.path.join(prediction_dir, f"*.{self.img_format}")):
+                if csv_path.endswith("_out.csv"):
+                    continue
                 total_image += 1
-                csv_out_path = image.replace(f".{self.img_format}", "_out.csv")
+                csv_out_path = csv_path.replace(".csv", "_out.csv")
+                image_path = csv_path
+                
                 data = pd.read_csv(csv_out_path)
-                max_res = -1
                 index_min = 0
-                gt_user = self.get_folder_from_path(image)
-                predict_image_path = data.iloc[0][0]
+                gt_user = self.get_folder_from_path(image_path)
+                predict_image_path = data.iloc[0]["image"]
                 predict_user = self.get_folder_from_path(predict_image_path)
-                try:
-                    retval, corr = cv_phase_correlate(image, predict_image_path)
-                    max_res = corr
-                except:
-                    corr = -1
-                size_loop = data.shape[0]-1
-                if ( data.iloc[0][1] < 0.02 ) and gt_user != predict_user:
+
+                if ( data.iloc[0]['distance'] < 0.02 ) and gt_user != predict_user:
                     with open("ReplaceFiles.txt", mode='a') as prob_file:
-                        prob_file.write(f"{gt_user},{predict_user}:{data.iloc[0][1]} \n")
+                        prob_file.write(f"{gt_user},{predict_user}:{data.iloc[0]['distance']} \n")
                     with open("RemoveFiles.txt", mode='a') as prob_file1:
                         prob_file1.write(f"{predict_image_path} \n")
 
-                    print(f" PROBLEM $$$$$$ {image}, {predict_image_path}:{data.iloc[0][1]}")
-
-                if gt_user == predict_user and data.iloc[0][1] == 0:
-                    max_res = 0
+                    print(f" PROBLEM $$$$$$ {image_path}, {predict_image_path}:{data.iloc[0]['distance']}")
 
 
-                if ( ( corr > 0.4 or data.iloc[0][1] < 0.2) and data.iloc[0][1] > 0 ) and gt_user == predict_user:
-                    size_loop = 0
-                try:
-                    if gt_user != predict_user or (gt_user == predict_user and data.iloc[0][1] == 0):
-                        for i in range(size_loop):
-                            predict_image_path = data.iloc[i][0]
-                            pred_res = data.iloc[i][1]
-                            retval, corr = cv_phase_correlate( image, predict_image_path )
-                        #     predict_user = self.get_folder_from_path(predict_image_path)
-                            max_distance = data.iloc[i][1]
-                            if max_res < corr and pred_res > 0:
-                                max_res = corr
-                                index_min= i
-                                if max_res > 0.4:
-                                    break
-                except:
-                    print(f"i {i} data.size {data.size}")
-                predict_image_path = data.iloc[index_min][0]
+                predict_image_path = data.iloc[index_min]['image']
                 predict_user = self.get_folder_from_path(predict_image_path)
-                min_distance = data.iloc[index_min][1]
-                corr = max_res
-                    # gt_user = self.get_folder_from_path(gt_user)
-                # predict_user = self.get_folder_from_path(predict_user)
-                # predict_image_path = data.iloc[0][0]
-                # predict_user = self.get_folder_from_path(predict_image_path)
-                # min_distance = data.iloc[0][1]
-                # predict_user = self.get_folder_from_path(predict_user)
+                min_distance = data.iloc[index_min]['distance']
+
 
                 if gt_user == predict_user:
                     correct_image +=1
-                    print(f"Process image: {image.replace(SPLITTED_TEST_DATA_DIR2, '')} - Grouth truth: {gt_user} - Predict: {predict_user}")
-                    # print(f"Correct! Min Distance: {min_distance} ")
-                    # print("-----------------------------")
-                    print(f"Correct! Min Distance: {min_distance} retval {retval} index_min {index_min} corr {corr} ")
-                    # min_distance = data.iloc[0][1]
-                    [phashvalue, ahashvalue, whashvalue, dhashvalue] = compareHash(image, predict_image_path)
-                    totRes = (phashvalue + ahashvalue + whashvalue+ dhashvalue) / 4
-                    if(  min_distance > 0.65 and  corr < 0.31 ):
+                    print(f"Process image: {image_path.replace(SPLITTED_TEST_DATA_DIR2, '')} - Grouth truth: {gt_user} - Predict: {predict_user}")
+                    print(f"Correct! Min Distance: {min_distance} index_min {index_min}")
+                    if(  min_distance > 0.3 ):
                         FRR += 1
-                        # print(f"Process image: {image.replace(SPLITTED_TEST_DATA_DIR2, '')} - Grouth truth: {gt_user} - Predict: {predict_user}")
-                        # print(f"Correct! Threshold: {threshold}, Min Distance: {min_distance} totRes: {totRes}")
-                        # print(f"Correct! Threshold: {phashvalue} phashvalue, {ahashvalue} ahashvalue, whashvalue {whashvalue}, dhashvalue {dhashvalue} ")
-                        # print(f"retval {retval} corr {corr} ")
-
 
                         print("-^^^^^^^--------  FRR ------^^^^^^------------")
 
-                    if threshold < min_distance:
-                        threshold = min_distance
-                    # print(f"Correct! Threshold: {threshold}, Min Distance: {min_distance}")
+                    if min_threshold > min_distance:
+                        min_threshold = min_distance
+                    
+                    if max_threshold < min_distance:
+                        max_threshold = min_distance
+                    
+                    threshold.append(min_distance)
+
                 else:
                     if (min_distance > 0 ):
                         incorrect_image += 1
-                        [phashvalue, ahashvalue, whashvalue, dhashvalue] = compareHash(image, predict_image_path)
-                        totRes = ( phashvalue + ahashvalue + whashvalue + dhashvalue ) / 4
-                        print(f"Process image: {image.replace(SPLITTED_TEST_DATA_DIR2, '')} - Grouth truth: {gt_user} - Predict: {predict_user}")
-                        print(f"Incorrect! Threshold: {threshold}, Min Distance: {min_distance} totRes: {totRes}")
-                        # print(f"Correct! Threshold: {phashvalue} phashvalue, {ahashvalue} ahashvalue, whashvalue {whashvalue}, dhashvalue {dhashvalue} ")
-                        print(f"retval {retval} corr {corr} ")
-                        print("++++++++++++++++++++++++++++++")
-                        if ( min_distance < 0.65  and  corr > 0.31 ):
+                        print(f"Process image: {image_path.replace(SPLITTED_TEST_DATA_DIR2, '')} - Grouth truth: {gt_user} - Predict: {predict_user}")
+                        print(f"Incorrect! Min Distance: {min_distance}")
 
-                            # print(f"Process image: {image.replace(SPLITTED_TEST_DATA_DIR2, '')} - Grouth truth: {gt_user} - Predict: {predict_user}")
+                        print("++++++++++++++++++++++++++++++")
+                        if ( min_distance < 0.3 ):
                             FAR +=1
-                            # print(f"Incorrect! Threshold: {threshold}, Min Distance: {min_distance} totRes: {totRes}")
-                            # print("++++++++++++++++++++++++++++++")
                     else:
                         print(f"!!!!!NotFound: - {gt_user} - Predict: {predict_user} min_distance {min_distance}")
                         print("-----------------------------------")
@@ -287,7 +277,3 @@ class Evaluate:
         print(f"Final: {correct_image/total_image * 100}")
         print("Max Threhold", round(max_threshold,3))
         print("Min Threhold", round(min_threshold,3))
-        # print("Mean Threshold", round(stats.mean(threshold),3))
-        # print("Median Threshold", round(stats.median(threshold),3))
-        # print("Median 75 Threshold", round(np.percentile(threshold,75),3))
-        # print("Median 95 Threshold", round(np.percentile(threshold,95),3))

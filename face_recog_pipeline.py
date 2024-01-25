@@ -6,8 +6,9 @@ import mediapipe as mp
 from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from numpy.linalg import norm as l2norm
-from .iresnet import iresnet18, iresnet34, iresnet50, iresnet100, iresnet200
-from .utils import crop_face, norm_crop, read_image_from_file, read_image_from_bz2
+import torch
+from .iresnet import iresnet50
+from .utils import crop_face, norm_crop, head_pose_estimation
 
 
 class FaceRecogPipeline:
@@ -30,25 +31,38 @@ class FaceRecogPipeline:
         detection_result = self.detector.detect(img_mp)
         return detection_result
     
+    def get_face_mesh(self, cropped_face: Union[None, np.array]):
+        if cropped_face is None:
+            return None
+        return self.face_mesh.process(cropped_face)
+    
+    def get_head_pose(self, landmarks: Union[None, np.array], img_mp: mp.Image):
+        head_pose, landmarks_2d = head_pose_estimation(landmarks,img_mp)
+        return head_pose, landmarks_2d
+        
     
     def get_face_embedding(self, cropped_face: Union[None, np.ndarray]):
         if cropped_face is None:
             return None
-        img = cv2.resize(cropped_face, (112, 112))
-        img = np.transpose(img, (2, 0, 1))
+        img = np.transpose(cropped_face, (2, 0, 1))
         img = torch.from_numpy(img).unsqueeze(0).float().to(self.device)
-        img.div_(255).sub_(0.5).div_(0.5)
+        img.div_(255)
         feat = self.face_recog(img).detach().cpu().numpy()
         norm = l2norm(feat)
         feat = feat/norm
         return feat
     
-    def embedding(self, img_mp: mp.Image):
+    def predict(self, img_mp: mp.Image):
         detection_result = self.face_detect(img_mp)
         if len(detection_result.detections)==0:
             print("No faces found")
             return
-        cropped_face, landmark = crop_face(detection_result, img_mp)
-        aligned_face, head_pose = norm_crop(cropped_face, landmark)
+        cropped_face = crop_face(detection_result, img_mp)
+        landmarks = self.get_face_mesh(cropped_face)
+        if landmarks is None or landmarks.multi_face_landmarks is None:
+            print("No face mesh found")
+            return None
+        head_pose, landmarks_2d = self.get_head_pose(landmarks, cropped_face)
+        aligned_face = norm_crop(cropped_face, landmarks_2d)
         face_embedding = self.get_face_embedding(aligned_face)
-        return face_embedding
+        return face_embedding, head_pose
