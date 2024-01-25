@@ -4,8 +4,8 @@ from random import shuffle
 import glob
 import numpy as np
 import shutil
-from .utils import read_image_from_file, read_image_from_bz2
-from .face_recog_pipeline import FaceRecogPipeline
+from utils import read_image_from_file, read_image_from_bz2
+from face_recog_pipeline import FaceRecogPipeline
 
 def copy_images(image_paths, target_dir):
     if not os.path.exists(target_dir):

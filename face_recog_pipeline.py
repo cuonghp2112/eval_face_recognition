@@ -7,8 +7,8 @@ from mediapipe.tasks import python
 from mediapipe.tasks.python import vision
 from numpy.linalg import norm as l2norm
 import torch
-from .iresnet import iresnet50
-from .utils import crop_face, norm_crop, head_pose_estimation
+from iresnet import iresnet50
+from utils import crop_face, norm_crop, head_pose_estimation
 
 
 class FaceRecogPipeline:
