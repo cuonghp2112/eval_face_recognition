@@ -12,11 +12,13 @@ from utils import crop_face, norm_crop, head_pose_estimation
 
 
 class FaceRecogPipeline:
-    def __init__(self, face_det_model_path: str,face_recog_model_path: str, device="cpu",
-                 min_detection_confidence=0.2, min_tracking_confidence=0.2):
+    def __init__(self, face_det_model_path: str,face_recog_model_path: str, device="cuda:0",
+                 min_detection_confidence=0.1, min_tracking_confidence=0.1, embedding_dir:Union[None, str]=None):
 
         base_options = python.BaseOptions(model_asset_path=face_det_model_path)
         options = vision.FaceDetectorOptions(base_options=base_options)
+        self.face_mesh = mp.solutions.face_mesh.FaceMesh(min_detection_confidence=min_detection_confidence,
+                                                         min_tracking_confidence=min_tracking_confidence)
         self.detector = vision.FaceDetector.create_from_options(options)
         
         net = iresnet50(False, fp16=False)
