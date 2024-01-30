@@ -284,7 +284,7 @@ class Evaluate:
 if __name__ == "__main__":
     
     parser = argparse.ArgumentParser()
-    parser.add_argument("--testing-dir", type=str, help='feret images folder', required=True)
+    parser.add_argument("--test-dir", type=str, help='feret images folder', required=True)
     parser.add_argument("--save-dir", type=str, help='path to save predicted embeddings', required=True)
     parser.add_argument("--img-format", type=str, default="ppm.bz2", help='img format can be jpg, png, bmp or ppm.bz2')
     parser.add_argument("--face-detect", type=str, help='path to mediapipe face detector model', required=True)
