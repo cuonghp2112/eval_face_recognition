@@ -1,7 +1,9 @@
-from typing import Optional
+from typing import Optional, Union, Tuple
 import cv2
 import bz2
+import mediapipe as mp
 import numpy as np
+import math
 from math import pi
 import torch
 import os, sys, time, re
@@ -34,6 +36,23 @@ def read_image_from_file(file_path):
         print(f"Error: {e}")
         return None
 
+def _normalized_to_pixel_coordinates(
+    normalized_x: float, normalized_y: float, image_width: int,
+    image_height: int) -> Union[None, Tuple[int, int]]:
+    """Converts normalized value pair to pixel coordinates."""
+
+    # Checks if the float value is between 0 and 1.
+    def is_valid_normalized_value(value: float) -> bool:
+        return (value > 0 or math.isclose(0, value)) and (value < 1 or math.isclose(1, value))
+
+    if not (is_valid_normalized_value(normalized_x) and
+          is_valid_normalized_value(normalized_y)):
+        # TODO: Draw coordinates even if it's outside of the image bounds.
+        return None
+    x_px = min(math.floor(normalized_x * image_width), image_width - 1)
+    y_px = min(math.floor(normalized_y * image_height), image_height - 1)
+    return x_px, y_px
+
 def crop_face(detection_result, image, margin_percentage=0.5) -> np.ndarray:
     image_copy = np.copy(image.numpy_view())
     detection = detection_result.detections[0]
@@ -59,15 +78,26 @@ def crop_face(detection_result, image, margin_percentage=0.5) -> np.ndarray:
     # Crop the face from the image
     cropped_face = image_copy[y:y+h, x:x+w]
     
-    return cropped_face
+    landmark = []
+    for keypoint in detection_result.detections[0].keypoints[:4]:
+        keypoint_x, keypoint_y = _normalized_to_pixel_coordinates(keypoint.x, keypoint.y, image.width, image.height)
+        landmark.append([max(keypoint_x - x, 0), max(keypoint_y - y, 0)])
+    landmark = np.array(landmark, dtype=np.float32)
+    return cropped_face, landmark
+
+
+# arcface_dst = np.array(
+#     [[38.2946, 51.6963], [73.5318, 51.5014], [56.0252, 71.7366],
+#      [41.5493, 92.3655], [70.7299, 92.2041]],
+#     dtype=np.float32)
 
 arcface_dst = np.array(
     [[38.2946, 51.6963], [73.5318, 51.5014], [56.0252, 71.7366],
-     [41.5493, 92.3655], [70.7299, 92.2041]],
+     [56.1396, 92.2848]],
     dtype=np.float32)
 
 def estimate_norm(lmk, image_size=112):
-    assert lmk.shape == (5, 2)
+    assert lmk.shape == (4, 2)
     assert image_size%112==0 or image_size%128==0
     if image_size%112==0:
         ratio = float(image_size)/112.0
@@ -87,72 +117,3 @@ def norm_crop(img, landmark, image_size=112):
     M = estimate_norm(landmark, image_size)
     warped = cv2.warpAffine(img, M, (image_size, image_size), borderValue=0.0)
     return warped
-
-def head_pose_estimation(results, image):
-    img_w, img_h, img_c = image.shape
-    face_2d = []
-    face_3d = []
-    arcface_landmarks = {}
-    for face_landmarks in results.multi_face_landmarks:
-        for idx, lm in enumerate(face_landmarks.landmark):
-            if idx == 33:
-                arcface_landmarks["l_eye"] = [int(lm.x * img_w),int(lm.y * img_h)]
-            elif idx == 263:
-                arcface_landmarks["r_eye"] = [int(lm.x * img_w),int(lm.y * img_h)]
-            elif idx == 1:
-                arcface_landmarks["nose"] = [int(lm.x * img_w),int(lm.y * img_h)]
-            elif idx == 61:
-                arcface_landmarks["l_m"] = [int(lm.x * img_w),int(lm.y * img_h)]
-            elif idx == 291:
-                arcface_landmarks["r_m"] = [int(lm.x * img_w),int(lm.y * img_h)]
-                
-            if idx == 33 or idx == 263 or idx ==1 or idx == 61 or idx == 291 or idx==199:
-                if idx ==1:
-                    nose_2d = (lm.x * img_w,lm.y * img_h)
-                    nose_3d = (lm.x * img_w,lm.y * img_h,lm.z * 3000)
-                x,y = int(lm.x * img_w),int(lm.y * img_h)
-
-                face_2d.append([x,y])
-                face_3d.append(([x,y,lm.z]))
-
-
-        #Get 2d Coord
-        face_2d = np.array(face_2d,dtype=np.float64)
-        arcface_landmarks = np.array([arcface_landmarks["l_eye"],arcface_landmarks["r_eye"],
-                                     arcface_landmarks["nose"],arcface_landmarks["l_m"],
-                                     arcface_landmarks["r_m"]],dtype=np.float64)
-
-        face_3d = np.array(face_3d,dtype=np.float64)
-
-        focal_length = 1 * img_w
-
-        cam_matrix = np.array([[focal_length,0,img_h/2],
-                              [0,focal_length,img_w/2],
-                              [0,0,1]])
-        distortion_matrix = np.zeros((4,1),dtype=np.float64)
-
-        success,rotation_vec,translation_vec = cv2.solvePnP(face_3d,face_2d,cam_matrix,distortion_matrix)
-
-
-        #getting rotational of face
-        rmat,jac = cv2.Rodrigues(rotation_vec)
-
-        angles,mtxR,mtxQ,Qx,Qy,Qz = cv2.RQDecomp3x3(rmat)
-
-        x = angles[0] * 360
-        y = angles[1] * 360
-        z = angles[2] * 360
-
-        #here based on axis rot angle is calculated
-        if y < -10:
-            text="left"
-        elif y > 10:
-            text="right"
-        elif x < -10:
-            text="down"
-        elif x > 10:
-            text="up"
-        else:
-            text="forward"
-
-        return text, arcface_landmarks

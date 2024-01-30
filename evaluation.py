@@ -1,5 +1,6 @@
 import pandas as pd
 import os, sys, re
+import argparse
 from random import shuffle
 import glob
 import numpy as np
@@ -70,9 +71,9 @@ class Evaluate:
         if not os.path.exists(csv_path):
 
             image = self.load_image(image_path)
-            prediction, head_pose = self.model.predict(image)
+            prediction = self.model.predict(image)
             prediction_str = ",".join(str(x) for x in prediction[0])
-            csv_path = csv_path.replace(".csv",f"_{head_pose}.csv")
+            # csv_path = csv_path.replace(".csv",f"_{head_pose}.csv")
 
             with open(csv_path, mode='w') as csv_file:
                 csv_file.write(prediction_str)
@@ -149,14 +150,14 @@ class Evaluate:
             for csv_path in glob.glob(os.path.join(original_dir, "*.csv")):
                 try:
                     image_path = self.image_from_saved_csv(csv_path)
-                    head_pose = self.pose_from_csv_filename(csv_path)
+                    # head_pose = self.pose_from_csv_filename(csv_path)
                     line = [image_path]
                     with open(csv_path, mode='rb') as csv_file:
                         prediction = csv_file.readline().decode("utf-8")
                         if len(prediction) == 0:
                             raise Exception("Empty result: ", csv_path)
                         line.append(prediction)
-                        line.append(head_pose)
+                        # line.append(head_pose)
                 except Exception as e:
                     print(f"error image: {image}")
                     print(e)
@@ -182,14 +183,14 @@ class Evaluate:
                     print(f"error csv: {csv_path}")
                     print(e)
                     continue
-                head_pose = self.pose_from_csv_filename(csv_path)
+                # head_pose = self.pose_from_csv_filename(csv_path)
                 image_list = []
                 distance_list = []
 
                 for original_value in original_values:
                     #  skip image has different head pose
-                    if original_value[2] != head_pose:
-                        continue
+                    # if original_value[2] != head_pose:
+                    #     continue
                     dist = self.distance(prediction, original_value[1])
                     image_list.append(original_value[0])
                     distance_list.append(dist)
@@ -278,3 +279,25 @@ class Evaluate:
         print(f"Final: {correct_image/total_image * 100}")
         print("Max Threhold", round(max_threshold,3))
         print("Min Threhold", round(min_threshold,3))
+
+
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--test-dir", type=str, help='feret images folder', required=True)
+    parser.add_argument("--save-dir", type=str, help='path to save predicted embeddings', required=True)
+    parser.add_argument("--img-format", type=str, default="ppm.bz2", help='img format can be jpg, png, bmp or ppm.bz2')
+    parser.add_argument("--face-detect", type=str, help='path to mediapipe face detector model', required=True)
+    parser.add_argument("--face-recog", type=str, help='path to face recognition model', required=True)
+    parser.add_argument("--device", type=str, default="cpu", help='choose device cpu or cuda')
+    args = parser.parse_args()
+
+
+    e = Evaluate(testing_data_folder=args.testing_dir,
+               splitted_test_dir=args.save_dir,
+               img_format=args.img_format,
+               face_det_model_path=args.face_detect,
+               face_recog_model_path=args.face_recog,
+               device=args.device)
+    
+    e.evaluate()
