@@ -1,5 +1,6 @@
 import pandas as pd
 import os, sys, re
+import argparse
 from random import shuffle
 import glob
 import numpy as np
@@ -278,3 +279,25 @@ class Evaluate:
         print(f"Final: {correct_image/total_image * 100}")
         print("Max Threhold", round(max_threshold,3))
         print("Min Threhold", round(min_threshold,3))
+
+
+if __name__ == "__main__":
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--testing-dir", type=str, help='feret images folder', required=True)
+    parser.add_argument("--save-dir", type=str, help='path to save predicted embeddings', required=True)
+    parser.add_argument("--img-format", type=str, default="ppm.bz2", help='img format can be jpg, png, bmp or ppm.bz2')
+    parser.add_argument("--face-detect", type=str, help='path to mediapipe face detector model', required=True)
+    parser.add_argument("--face-recog", type=str, help='path to face recognition model', required=True)
+    parser.add_argument("--device", type=str, default="cpu", help='choose device cpu or cuda')
+    args = parser.parse_args()
+
+
+    e = Evaluate(testing_data_folder=args.testing_dir,
+               splitted_test_dir=args.save_dir,
+               img_format=args.img_format,
+               face_det_model_path=args.face_detect,
+               face_recog_model_path=args.face_recog,
+               device=args.device)
+    
+    e.evaluate()
