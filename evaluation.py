@@ -293,7 +293,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
 
-    e = Evaluate(testing_data_folder=args.testing_dir,
+    e = Evaluate(testing_data_folder=args.test_dir,
                splitted_test_dir=args.save_dir,
                img_format=args.img_format,
                face_det_model_path=args.face_detect,
