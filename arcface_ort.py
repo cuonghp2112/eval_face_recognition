@@ -12,7 +12,7 @@ class ArcFaceORT:
         self.providers = ['CPUExecutionProvider'] if device == "cpu" else None
 
     #input_size is (w,h), return error message, return None if success
-    def check(self, track='cfat', test_img = None):
+    def check(self):
 
         if not os.path.exists(self.model_path):
             return "model_path not exists"
