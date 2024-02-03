@@ -3,7 +3,7 @@
 ### Download mediapipe detector tflite model
 https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite
 
-### Download face recogintion model (backbone.pth)
+### Download face recogintion model (backbone.pth or resnet50.onnx)
 https://www.kaggle.com/datasets/cuongpham2112/test-1801
 
 ### Install requirements
