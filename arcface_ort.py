@@ -4,6 +4,7 @@ import numpy as np
 import cv2
 import sys
 import onnxruntime
+from numpy.linalg import norm as l2norm
 
 class ArcFaceORT:
     def __init__(self, model_path, device:str="cpu"):
@@ -67,4 +68,6 @@ class ArcFaceORT:
 
         blob = cv2.dnn.blobFromImages(imgs, 1.0/self.input_std, input_size, (self.input_mean, self.input_mean, self.input_mean), swapRB=True)
         net_out = self.session.run(self.output_names, {self.input_name : blob})[0]
+        norm = l2norm(net_out)
+        net_out = net_out/norm
         return net_out
