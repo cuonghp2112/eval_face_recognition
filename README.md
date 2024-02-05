@@ -31,6 +31,6 @@ python evaluation.py --test-dir path_to_test_data_dir \
                      --save-dir path_to_save_output_results \
                      --img-format "ppm.bz2" \
                      --face-detect path_to_face_detect_model \
-                     --face-recog path_to_backbone.pth \
+                     --face-recog path_to_backbone.pth_or_onnx_model \
                      --device cpu
 ```
