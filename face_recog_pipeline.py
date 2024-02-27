@@ -73,10 +73,10 @@ class FaceRecogPipeline:
             return None
         cropped_face, landmarks = crop_face(detection_result, img_mp)
 
-        landmarks = self.get_face_mesh(cropped_face)
-        if landmarks is None:
+        face_mesh = self.get_face_mesh(cropped_face)
+        if face_mesh is None:
             return None
-        head_pose = self.get_head_pose(landmarks, cropped_face)
+        head_pose = self.get_head_pose(face_mesh, cropped_face)
 
         aligned_face = norm_crop(cropped_face, landmarks)
         face_embedding = self.get_face_embedding(aligned_face)
