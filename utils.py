@@ -117,3 +117,59 @@ def norm_crop(img, landmark, image_size=112):
     M = estimate_norm(landmark, image_size)
     warped = cv2.warpAffine(img, M, (image_size, image_size), borderValue=0.0)
     return warped
+
+def head_pose_estimation(results, image):
+    img_w = image.shape[0]
+    img_h = image.shape[1]
+    img_c = image.shape[2]
+    face_2d = []
+    face_3d = []
+    for face_landmarks in results.multi_face_landmarks:
+        for idx, lm in enumerate(face_landmarks.landmark):
+            if idx == 33 or idx == 263 or idx ==1 or idx == 61 or idx == 291 or idx==199:
+                if idx ==1:
+                    nose_2d = (lm.x * img_w,lm.y * img_h)
+                    nose_3d = (lm.x * img_w,lm.y * img_h,lm.z * 3000)
+                x,y = int(lm.x * img_w),int(lm.y * img_h)
+
+                face_2d.append([x,y])
+                face_3d.append(([x,y,lm.z]))
+
+
+        #Get 2d Coord
+        face_2d = np.array(face_2d,dtype=np.float64)
+
+        face_3d = np.array(face_3d,dtype=np.float64)
+
+        focal_length = 1 * img_w
+
+        cam_matrix = np.array([[focal_length,0,img_h/2],
+                              [0,focal_length,img_w/2],
+                              [0,0,1]])
+        distortion_matrix = np.zeros((4,1),dtype=np.float64)
+
+        success,rotation_vec,translation_vec = cv2.solvePnP(face_3d,face_2d,cam_matrix,distortion_matrix)
+
+
+        #getting rotational of face
+        rmat,jac = cv2.Rodrigues(rotation_vec)
+
+        angles,mtxR,mtxQ,Qx,Qy,Qz = cv2.RQDecomp3x3(rmat)
+
+        x = angles[0] * 360
+        y = angles[1] * 360
+        z = angles[2] * 360
+
+        #here based on axis rot angle is calculated
+        if y < -10:
+            text="left"
+        elif y > 10:
+            text="right"
+        elif x < -10:
+            text="down"
+        elif x > 10:
+            text="up"
+        else:
+            text="forward"
+
+        return text
