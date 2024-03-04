@@ -88,7 +88,7 @@ def crop_face(detection_result, image, margin_percentage=0.5) -> np.ndarray:
 def crop_face_landmarks(detection_result, image, margin_percentage=0.3) -> np.ndarray:
     image_copy = np.copy(image.numpy_view())
     landmarks = detection_result.face_landmarks[0] # only take the first face
-    
+
     x = int(landmarks[127].x*image.width)
     y = int(landmarks[10].y*image.height)
     w = int(landmarks[356].x*image.width) - x
@@ -199,9 +199,9 @@ def head_pose_estimation(results, image):
             text="left"
         elif y > 10:
             text="right"
-        elif x < -10:
+        elif x < -20:
             text="down"
-        elif x > 10:
+        elif x > 20:
             text="up"
         else:
             text="forward"
