@@ -7,6 +7,12 @@ https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/
 https://www.kaggle.com/datasets/cuongpham2112/test-1801
 
 ### Install requirements
+Recommend creating an environment with Conda or Miniconda.
+```
+conda create -n eval_face python=3.8
+conda activate eval_face
+```
+Then install requirements of the project
 ```shell
 pip install -r requirements.txt
 ```

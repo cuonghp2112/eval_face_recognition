@@ -35,7 +35,7 @@ class Evaluate:
         # List all user folders
         for user_dir in glob.glob(os.path.join(self.testing_data_folder, "*")):
             # Get the folder name
-            user_name = user_dir.split('/')[-1]
+            user_name = os.path.basename(user_dir)
             # Create new folder in self.splitted_test_dir
             splitted_user_dir = os.path.join(self.splitted_test_dir, user_name)
             if not os.path.exists(splitted_test_dir):
