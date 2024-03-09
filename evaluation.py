@@ -87,7 +87,7 @@ class Evaluate:
         return 1 - np.dot(vector1,vector2.T)
 
     def get_folder_from_path(self, image_path):
-        if platform.uname().sysname.lower() == "linux":
+        if platform.uname().system.lower() == "linux":
             image_path = image_path.split("/")[-3]
         else:
             image_path = image_path.split("\\")[-3]
