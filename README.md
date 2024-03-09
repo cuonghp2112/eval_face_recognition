@@ -14,7 +14,7 @@ conda activate eval_face
 ```
 Then install requirements of the project
 ```shell
-pip install -r requirements.txt
+pip install --default-timeout=100 -r requirements.txt
 ```
 
 ### Run evaluation
