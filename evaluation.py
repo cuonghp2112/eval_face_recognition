@@ -8,6 +8,7 @@ import mediapipe as mp
 import shutil
 from utils import read_image_from_file, read_image_from_bz2
 from face_recog_pipeline import FaceRecogPipeline
+import platform
 
 def copy_images(image_paths, target_dir):
     if not os.path.exists(target_dir):
@@ -86,7 +87,7 @@ class Evaluate:
         return 1 - np.dot(vector1,vector2.T)
 
     def get_folder_from_path(self, image_path):
-        if os.uname().sysname.lower() == "linux":
+        if platform.uname().sysname.lower() == "linux":
             image_path = image_path.split("/")[-3]
         else:
             image_path = image_path.split("\\")[-3]
