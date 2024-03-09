@@ -8,6 +8,7 @@ import mediapipe as mp
 import shutil
 from utils import read_image_from_file, read_image_from_bz2
 from face_recog_pipeline import FaceRecogPipeline
+import platform
 
 def copy_images(image_paths, target_dir):
     if not os.path.exists(target_dir):
@@ -35,7 +36,7 @@ class Evaluate:
         # List all user folders
         for user_dir in glob.glob(os.path.join(self.testing_data_folder, "*")):
             # Get the folder name
-            user_name = user_dir.split('/')[-1]
+            user_name = os.path.basename(user_dir)
             # Create new folder in self.splitted_test_dir
             splitted_user_dir = os.path.join(self.splitted_test_dir, user_name)
             if not os.path.exists(splitted_test_dir):
@@ -71,9 +72,10 @@ class Evaluate:
         if not os.path.exists(csv_path):
 
             image = self.load_image(image_path)
-            prediction = self.model.predict(image)
+            # prediction = self.model.predict(image)
+            prediction, head_pose = self.model.predict_headpose(image)
             prediction_str = ",".join(str(x) for x in prediction[0])
-            # csv_path = csv_path.replace(".csv",f"_{head_pose}.csv")
+            csv_path = csv_path.replace(".csv",f"_{head_pose}.csv")
 
             with open(csv_path, mode='w') as csv_file:
                 csv_file.write(prediction_str)
@@ -85,7 +87,7 @@ class Evaluate:
         return 1 - np.dot(vector1,vector2.T)
 
     def get_folder_from_path(self, image_path):
-        if os.uname().sysname.lower() == "linux":
+        if platform.uname().sysname.lower() == "linux":
             image_path = image_path.split("/")[-3]
         else:
             image_path = image_path.split("\\")[-3]
@@ -150,14 +152,14 @@ class Evaluate:
             for csv_path in glob.glob(os.path.join(original_dir, "*.csv")):
                 try:
                     image_path = self.image_from_saved_csv(csv_path)
-                    # head_pose = self.pose_from_csv_filename(csv_path)
+                    head_pose = self.pose_from_csv_filename(csv_path)
                     line = [image_path]
                     with open(csv_path, mode='rb') as csv_file:
                         prediction = csv_file.readline().decode("utf-8")
                         if len(prediction) == 0:
                             raise Exception("Empty result: ", csv_path)
                         line.append(prediction)
-                        # line.append(head_pose)
+                        line.append(head_pose)
                 except Exception as e:
                     print(f"error image: {image}")
                     print(e)
@@ -183,14 +185,14 @@ class Evaluate:
                     print(f"error csv: {csv_path}")
                     print(e)
                     continue
-                # head_pose = self.pose_from_csv_filename(csv_path)
+                head_pose = self.pose_from_csv_filename(csv_path)
                 image_list = []
                 distance_list = []
 
                 for original_value in original_values:
                     #  skip image has different head pose
-                    # if original_value[2] != head_pose:
-                    #     continue
+                    if original_value[2] != head_pose:
+                        continue
                     dist = self.distance(prediction, original_value[1])
                     image_list.append(original_value[0])
                     distance_list.append(dist)

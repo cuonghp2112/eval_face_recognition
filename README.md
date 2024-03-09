@@ -1,12 +1,18 @@
 # eval_face_recognition
 
-### Download mediapipe detector tflite model
-https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite
+### Download mediapipe face landmarker v2 model
+https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
 
 ### Download face recogintion model (backbone.pth or resnet50.onnx)
 https://www.kaggle.com/datasets/cuongpham2112/test-1801
 
 ### Install requirements
+Recommend creating an environment with Conda or Miniconda.
+```
+conda create -n eval_face python=3.8
+conda activate eval_face
+```
+Then install requirements of the project
 ```shell
 pip install -r requirements.txt
 ```
@@ -30,7 +36,7 @@ Run the evaluation.py
 python evaluation.py --test-dir path_to_test_data_dir \
                      --save-dir path_to_save_output_results \
                      --img-format "ppm.bz2" \
-                     --face-detect path_to_face_detect_model \
-                     --face-recog path_to_backbone.pth_or_onnx_model \
+                     --face-detect path_to_face_landmarker_model \
+                     --face-recog path_to_backbone.pth \
                      --device cpu
 ```
